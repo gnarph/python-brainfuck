@@ -38,7 +38,7 @@ def check_matching_jumps(instructions):
 
 class FuckVM(object):
     """
-    Brainfuck virtual machine
+    brainfuck virtual machine
     """
 
     def __init__(self, instructions):
@@ -51,29 +51,45 @@ class FuckVM(object):
         self.data = defaultdict(int)
         self.data_pointer = 0
         self.instruction_pointer = 0
+        self._dispatch = {
+            DP_MOV_RIGHT: self.increment_data_pointer,
+            DP_MOV_LEFT: self.decrement_data_pointer,
+            DP_INCR: self.increment_data,
+            DP_DECR: self.decrement_data,
+            DP_OUTPUT: self.output,
+            DP_STORE: self.store,
+            IP_JUMP_FORWARD: self.jump_forward,
+            IP_JUMP_BACKWARD: self.jump_backward,
+        }
+
+    def dispatch(self, cmd):
+        """
+        Get method
+        """
+        return self._dispatch[cmd]
 
     def data_at_ptr(self):
         return self.data[self.data_pointer]
 
-    def mov_right(self):
+    def increment_data_pointer(self):
         """
         increment data pointer
         """
         self.data_pointer += 1
 
-    def mov_left(self):
+    def decrement_data_pointer(self):
         """
         decrement data pointer
         """
         self.data_pointer -= 1
 
-    def incr(self):
+    def increment_data(self):
         """
         Increment data at pointer
         """
         self.data[self.data_pointer] += 1
 
-    def decr(self):
+    def decrement_data(self):
         """
         Decrement data at pointer
         """
@@ -97,7 +113,7 @@ class FuckVM(object):
         c = getch()
         self.data[self.data_pointer] = c
 
-    def jumpf(self):
+    def jump_forward(self):
         """
         Jump forward
         """
@@ -105,7 +121,8 @@ class FuckVM(object):
             return
         ptr = self.instruction_pointer + 1
         opn = 1
-        while ptr < len(self.instructions):
+        li = len(self.instructions)
+        while 0 < ptr < li:
             inst = self.instructions[ptr]
             if inst == IP_JUMP_FORWARD:
                 opn += 1
@@ -116,7 +133,7 @@ class FuckVM(object):
             ptr += 1
         self.instruction_pointer = ptr
 
-    def jumpb(self):
+    def jump_backward(self):
         """
         Jump backward
         """
@@ -124,7 +141,8 @@ class FuckVM(object):
             return
         ptr = self.instruction_pointer - 1
         opn = -1
-        while 0 < ptr < len(self.instructions):
+        li = len(self.instructions)
+        while 0 < ptr < li:
             inst = self.instructions[ptr]
             if inst == IP_JUMP_FORWARD:
                 opn += 1
@@ -139,29 +157,17 @@ class FuckVM(object):
         """
         Fetch next instruction
         """
-        instruction = self.instructions[self.instruction_pointer]
-        return instruction
+        return self.instructions[self.instruction_pointer]
 
     def execute(self):
         """
         Run instructions
         """
-        choices = {
-            DP_MOV_RIGHT: self.mov_right,
-            DP_MOV_LEFT: self.mov_left,
-            DP_INCR: self.incr,
-            DP_DECR: self.decr,
-            DP_OUTPUT: self.output,
-            DP_STORE: self.store,
-            IP_JUMP_FORWARD: self.jumpf,
-            IP_JUMP_BACKWARD: self.jumpb,
-        }
-
         end = len(self.instructions)
         while self.instruction_pointer < end:
             instruction = self.fetch()
             try:
-                action = choices[instruction]
+                action = self.dispatch(instruction)
             except KeyError:
                 continue
             else:
