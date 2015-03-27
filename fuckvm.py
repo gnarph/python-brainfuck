@@ -8,14 +8,14 @@ import sys
 from getch import getch
 
 # Commands
-DP_MOV_RIGHT = '>'
-DP_MOV_LEFT = '<'
-DP_INCR = '+'
-DP_DECR = '-'
-DP_OUTPUT = '.'
-DP_STORE = ','
-IP_JUMP_FORWARD = '['
-IP_JUMP_BACKWARD = ']'
+INCREMENT_DATA_POINTER = '>'
+DECREMENT_DATA_POINTER = '<'
+INCREMENT_DATA = '+'
+DECREMENT_DATA = '-'
+OUTPUT_DATA = '.'
+READ_DATA = ','
+JUMP_FORWARD = '['
+JUMP_BACKWARD = ']'
 
 
 def check_matching_jumps(instructions):
@@ -24,9 +24,9 @@ def check_matching_jumps(instructions):
     """
     open_jumps = 0
     for instruction in instructions:
-        if instruction == IP_JUMP_FORWARD:
+        if instruction == JUMP_FORWARD:
             open_jumps += 1
-        elif instruction == IP_JUMP_BACKWARD:
+        elif instruction == JUMP_BACKWARD:
             if open_jumps == 0:
                 raise Exception('Unmatched back jump')
             open_jumps -= 1
@@ -34,6 +34,25 @@ def check_matching_jumps(instructions):
         raise Exception('Unmatched forward jump')
     elif open_jumps < 0:
         raise Exception('Should never happen')
+
+
+def generate_jump_guide(instructions):
+    """
+    Where to jump?
+    key of dict is origin of jump, value is destination
+    """
+    openings = []
+    jump_guide = {}
+
+    for position, instruction in enumerate(instructions):
+        if instruction == JUMP_FORWARD:
+            openings.append(position)
+        elif instruction == JUMP_BACKWARD:
+            forward_position = openings.pop()
+            backward_position = position
+            jump_guide[forward_position] = backward_position
+            jump_guide[backward_position] = forward_position
+    return jump_guide
 
 
 class FuckVM(object):
@@ -52,15 +71,16 @@ class FuckVM(object):
         self.data_pointer = 0
         self.instruction_pointer = 0
         self._dispatch = {
-            DP_MOV_RIGHT: self.increment_data_pointer,
-            DP_MOV_LEFT: self.decrement_data_pointer,
-            DP_INCR: self.increment_data,
-            DP_DECR: self.decrement_data,
-            DP_OUTPUT: self.output,
-            DP_STORE: self.store,
-            IP_JUMP_FORWARD: self.jump_forward,
-            IP_JUMP_BACKWARD: self.jump_backward,
+            INCREMENT_DATA_POINTER: self.increment_data_pointer,
+            DECREMENT_DATA_POINTER: self.decrement_data_pointer,
+            INCREMENT_DATA: self.increment_data,
+            DECREMENT_DATA: self.decrement_data,
+            OUTPUT_DATA: self.output,
+            READ_DATA: self.store,
+            JUMP_FORWARD: self.jump_forward,
+            JUMP_BACKWARD: self.jump_backward,
         }
+        self.jump_guide = generate_jump_guide(instructions)
 
     def dispatch(self, cmd):
         """
@@ -99,10 +119,11 @@ class FuckVM(object):
         """
         Print data at pointer
         """
+        datum = self.data_at_ptr()
         try:
-            char = chr(self.data[self.data_pointer])
+            char = chr(datum)
         except ValueError:
-            char = self.data[self.data_pointer]
+            char = datum
         sys.stdout.write('%s' % char)
         sys.stdout.flush()
 
@@ -113,45 +134,25 @@ class FuckVM(object):
         c = getch()
         self.data[self.data_pointer] = c
 
+    def _get_jump_destination(self):
+        """
+        Find destination of jump
+        """
+        return self.jump_guide[self.instruction_pointer]
+
     def jump_forward(self):
         """
         Jump forward
         """
-        if self.data_at_ptr() != 0:
-            return
-        ptr = self.instruction_pointer + 1
-        opn = 1
-        li = len(self.instructions)
-        while 0 < ptr < li:
-            inst = self.instructions[ptr]
-            if inst == IP_JUMP_FORWARD:
-                opn += 1
-            elif inst == IP_JUMP_BACKWARD:
-                opn -= 1
-            if opn == 0:
-                break
-            ptr += 1
-        self.instruction_pointer = ptr
+        if not self.data_at_ptr():
+            self.instruction_pointer = self._get_jump_destination()
 
     def jump_backward(self):
         """
         Jump backward
         """
-        if not self.data_at_ptr():
-            return
-        ptr = self.instruction_pointer - 1
-        opn = -1
-        li = len(self.instructions)
-        while 0 < ptr < li:
-            inst = self.instructions[ptr]
-            if inst == IP_JUMP_FORWARD:
-                opn += 1
-            elif inst == IP_JUMP_BACKWARD:
-                opn -= 1
-            if opn == 0:
-                break
-            ptr -= 1
-        self.instruction_pointer = ptr
+        if self.data_at_ptr():
+            self.instruction_pointer = self._get_jump_destination()
 
     def fetch(self):
         """
