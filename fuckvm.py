@@ -132,7 +132,7 @@ class FuckVM(object):
         Read single char
         """
         c = getch()
-        self.data[self.data_pointer] = c
+        self.data[self.data_pointer] = ord(c)
 
     def _get_jump_destination(self):
         """
