@@ -82,13 +82,23 @@ class FuckVM(object):
         }
         self.jump_guide = generate_jump_guide(instructions)
 
+    @staticmethod
+    def _do_nothing():
+        """
+        Do nothing on an invalid instruction
+        """
+        pass
+
     def dispatch(self, cmd):
         """
         Get method
         """
-        return self._dispatch[cmd]
+        return self._dispatch.get(cmd, self._do_nothing)
 
     def data_at_ptr(self):
+        """
+        Get data at datapointer
+        """
         return self.data[self.data_pointer]
 
     def increment_data_pointer(self):
@@ -131,8 +141,8 @@ class FuckVM(object):
         """
         Read single char
         """
-        c = getch()
-        self.data[self.data_pointer] = ord(c)
+        character = getch()
+        self.data[self.data_pointer] = ord(character)
 
     def _get_jump_destination(self):
         """
@@ -167,14 +177,9 @@ class FuckVM(object):
         end = len(self.instructions)
         while self.instruction_pointer < end:
             instruction = self.fetch()
-            try:
-                action = self.dispatch(instruction)
-            except KeyError:
-                continue
-            else:
-                action()
-            finally:
-                self.instruction_pointer += 1
+            action = self.dispatch(instruction)
+            action()
+            self.instruction_pointer += 1
 
 if __name__ == '__main__':
     brainfuck_vm = FuckVM(sys.argv[1])
